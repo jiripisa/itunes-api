@@ -6,10 +6,10 @@ CLEAN.include("pkg")
 
 spec = Gem::Specification.new do |s|
     s.name       = "itunes-api"
-    s.version    = "1.0.0"
+    s.version    = "0.5"
     s.author     = "Jiri Pisa"
-    s.email      = "jiri.pisa@jiripisa.net"
-    s.homepage   = "http://jiripisa.net"
+    s.email      = "jiri.pisa@jetminds.com"
+    s.homepage   = "http://jetminds.com"
     s.summary    = "API for your iTunes library."
     s.platform   = Gem::Platform::RUBY
     s.files      = FileList["{lib}/**/*"].exclude("rdoc").to_a
