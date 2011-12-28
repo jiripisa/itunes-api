@@ -35,13 +35,12 @@ module ITunes
       @library = iTunes
       music = iTunes.sources.find_all { |source|source.name == 'Library'}[0].playlists.find_all { |playlist| playlist.name == 'Music'}[0]
       music.tracks.each do |track|
-        key = "#{track.album.toANSI} - #{Helper.instance.interpret_name(track)}"
-       (@albums[key] ||= Album.new(track)).tracks << track
+        (@albums[Album.key(track)] ||= Album.new(track)).tracks << track
       end
     end
 
     def albums
-      @albums.values
+      @albums.values.sort
     end
     
   end
@@ -51,44 +50,48 @@ module ITunes
   #----------------------------------
   class Album
 
-    attr_reader :name, :interpret, :year, :sort_interpret, :tracks, :compilation
+    attr_reader :name, :interpret, :year, :sort_interpret, :tracks, :compilation, :key
+    
+    def self.sort_interpret(track)
+      return 'V.A.' if track.compilation
+      return track.sortAlbumArtist if track.sortAlbumArtist != ''
+      return track.albumArtist if track.albumArtist != ''
+      return track.sortArtist if track.sortArtist != ''
+      return track.artist
+    end
+    
+    def self.interpret(track)
+      return 'V.A.' if track.compilation
+      return track.albumArtist if track.albumArtist != ''
+      return track.artist
+    end
+
+    def self.key(track)
+      "#{sort_interpret(track)} - #{album_name(track)}"
+    end
+    
+    def self.album_name(track)
+      return track.album.toANSI
+    end
 
     def initialize(track)
-      @name = track.album.toANSI
-      @interpret = Helper.instance.interpret_name(track)
-      @sort_interpret = track.sortAlbumArtist != '' ? track.sortAlbumArtist.toANSI : (track.sortArtist != '' ? track.sortArtist.toANSI : @interpret)
+      @name = self.class.album_name(track)
+      @interpret = self.class.interpret(track)
+      @sort_interpret = self.class.sort_interpret(track)
       @year = track.year
       @tracks = []
       @compilation = track.compilation
+      @key = self.class.key(track)
     end
 
     def to_s
-      #@interpret == @sort_interpret ? "#{@interpret} / #{@name}" : "#{@sort_interpret} [#{@interpret}] / #{@name}"
-      "#{@sort_interpret} - #{@name}"
+      self.key
     end
 
     def <=> (other)
-      return (@compilation ? 1 : -1)  unless @compilation == other.compilation
-      return @name <=> other.name if @compilation
-      return @sort_interpret <=> other.sort_interpret unless @sort_interpret == other.sort_interpret
-      return @year <=> other.year unless @year == other.year
-      return @name <=> other.name
+      return self.key <=> other.key
     end
     
   end 
-
-  #----------------------------------
-  # Album
-  #----------------------------------
-
-  class Helper
-
-    include Singleton
-
-    def interpret_name(track)
-      track.compilation ? 'V.A.' : (track.albumArtist != '' ? track.albumArtist : track.artist).toANSI
-    end
-
-  end
 
 end
