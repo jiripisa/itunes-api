@@ -4,6 +4,7 @@ require 'singleton'
 require 'logger'
 require 'osx/cocoa'
 require 'itunes-api/utils'
+require 'erb'
 
 module ITunes
 
@@ -37,6 +38,7 @@ module ITunes
       music.tracks.each do |track|
         (@albums[Album.key(track)] ||= Album.new(track)).tracks << track
       end
+      log.info("Library loaded")
     end
 
     def albums
@@ -54,10 +56,10 @@ module ITunes
     
     def self.sort_interpret(track)
       return 'V.A.' if track.compilation
-      return track.sortAlbumArtist if track.sortAlbumArtist != ''
-      return track.albumArtist if track.albumArtist != ''
-      return track.sortArtist if track.sortArtist != ''
-      return track.artist
+      return track.sortAlbumArtist.toANSI if track.sortAlbumArtist != ''
+      return track.albumArtist.toANSI if track.albumArtist != ''
+      return track.sortArtist.toANSI if track.sortArtist != ''
+      return track.artist.toANSI
     end
     
     def self.interpret(track)
@@ -83,6 +85,14 @@ module ITunes
       @compilation = track.compilation
       @key = self.class.key(track)
     end
+    
+    def missing_artwork?
+      tracks.find{|track| track.artworks.size == 0}
+    end
+    
+    def artwork_file_name
+      return key.gsub(':', '-').gsub('/','-')
+    end
 
     def to_s
       self.key
@@ -93,5 +103,54 @@ module ITunes
     end
     
   end 
+  
+end
 
+#----------------------------------
+# DirWithArtworkFiles
+#----------------------------------
+
+class DirWithArtworkFiles
+  def initialize dir
+    current_dir = Dir.pwd
+    Dir.chdir dir
+    @root_dir = dir
+    @artwork_files = Dir.glob('*.jpg') + Dir.glob('*.png')
+    Dir.chdir current_dir
+  end
+  
+  def albums_with_artwork_file(albums = ITunes::Library.instance.albums)
+    albums.find_all{|album| album_has_artwork_file(album)}
+  end
+  
+  def albums_without_artwork_file(albums = ITunes::Library.instance.albums)
+    albums.find_all{|album| not album_has_artwork_file(album)}
+  end
+  
+  def artwork_files_without_album(albums = ITunes::Library.instance.albums)
+    @artwork_files.find_all{|artwork_file| not artwork_file_has_album(artwork_file, albums)}
+  end
+  
+  def generate_script(albums, file)
+    erb = ERB.new(File.new("#{File.dirname(__FILE__)}/itunes-api/add_artwork_applescripts.erb").read)
+    File.open(file, "w+") {|out| out.puts erb.result(binding)}  
+  end
+  
+  private
+  def artwork_for_album(album)
+    "#{@root_dir}/#{@artwork_files.find{|artwork| album.artwork_file_name.upcase == file_name(artwork).upcase}}"
+  end
+  
+  def album_has_artwork_file(album)
+    @artwork_files.find{|artwork| album.artwork_file_name.upcase == file_name(artwork).upcase}
+  end
+  
+  def artwork_file_has_album(artwork_file, albums)
+    albums.find{|album| album.artwork_file_name.upcase == file_name(artwork_file).upcase}
+  end  
+  
+  def file_name(artwork)
+    return artwork.split('.jpg')[0].split('.png')[0]
+  end
+  
 end

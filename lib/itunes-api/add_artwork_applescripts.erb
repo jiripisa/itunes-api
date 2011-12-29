@@ -1,0 +1,52 @@
+tell application "System Events"
+	set isRunning to (count of (every process whose bundle identifier is "com.Growl.GrowlHelperApp")) > 0
+end tell
+
+if isRunning = true then
+	tell application id "com.Growl.GrowlHelperApp"
+		set the allNotificationsList to ¬
+			{"Processing album", "Finished"}
+		set the enabledNotificationsList to ¬
+			{"Processing album", "Finished"}
+		register as application ¬
+			"iTunes API" all notifications allNotificationsList ¬
+			default notifications enabledNotificationsList ¬
+			icon of application "Script Editor"
+	end tell
+end if
+
+tell application "iTunes"
+	<% albums.each do |album| %>
+		if isRunning = true then
+			tell application id "com.Growl.GrowlHelperApp"
+				notify with name ¬
+					"Processing album" title ¬
+					"iTunes" description ¬
+					"Processing album <%= album.name%>" application name "iTunes API" with sticky
+				close all notifications
+			end tell
+		end if
+		<% artwork_file = artwork_for_album(album) %>
+		set artwork_file to (POSIX file "<%= artwork_file %>")
+	    set the_artwork to read (artwork_file) as picture
+		<% album.tracks.each do |track| %>
+			set current_track to ((first track of library playlist 1) whose database ID is <%= track.databaseID%>)
+	    	set data of artwork 1 of current_track to the_artwork
+			delay 3
+		<% end %>
+		if isRunning = true then
+			tell application id "com.Growl.GrowlHelperApp"
+				close all notifications
+			end tell
+		end if
+	<% end %>
+	if isRunning = true then
+		tell application id "com.Growl.GrowlHelperApp"
+			notify with name ¬
+				"Finished" title ¬
+				"iTunes" description ¬
+				"DONE :-)" application name "iTunes API" with sticky
+			close all notifications
+		end tell
+	end if
+end tell
